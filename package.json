@@ -4,7 +4,7 @@
   "publisher": "joshuajung",
   "description": "Outsources a component based on a JSX node.",
   "repository": "https://github.com/joshuajung/vscode-outsourceComponent",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.59.0"
   },
@@ -19,7 +19,7 @@
     "commands": [
       {
         "command": "outsource-component.outsourceSelection",
-        "title": "Outsource Selection"
+        "title": "Outsource Selected Component…"
       }
     ]
   },
