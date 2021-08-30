@@ -83,7 +83,13 @@ export function activate(context: vscode.ExtensionContext) {
               new vscode.Position(sourceSelection.start.line, 0),
               new vscode.Position(sourceSelection.start.line, 9999)
             );
-            await vscode.commands.executeCommand("vscode.open", targetUri);
+            try {
+              await vscode.commands.executeCommand("vscode.open", targetUri);
+            } catch {
+              throw new Error(
+                "Cannot create component file – it likely already exists."
+              );
+            }
             await vscode.commands.executeCommand(
               "editor.action.formatDocument"
             );

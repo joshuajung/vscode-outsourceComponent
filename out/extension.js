@@ -76,7 +76,12 @@ function activate(context) {
                 yield vscode.workspace.applyEdit(edit);
                 yield vscode.commands.executeCommand("editor.action.formatDocument");
                 vscode.window.activeTextEditor.selection = new vscode.Selection(new vscode.Position(sourceSelection.start.line, 0), new vscode.Position(sourceSelection.start.line, 9999));
-                yield vscode.commands.executeCommand("vscode.open", targetUri);
+                try {
+                    yield vscode.commands.executeCommand("vscode.open", targetUri);
+                }
+                catch (_f) {
+                    throw new Error("Cannot create component file – it likely already exists.");
+                }
                 yield vscode.commands.executeCommand("editor.action.formatDocument");
                 yield vscode.commands.executeCommand("workbench.action.files.save");
                 progress.report({ increment: 20 });
