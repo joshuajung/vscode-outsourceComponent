@@ -18,70 +18,111 @@ export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.commands.registerCommand(
     "outsource-component.outsourceSelection",
     async () => {
-      try {
-        // Get current selection
-        if (!vscode.window.activeTextEditor) {
-          vscode.window.showErrorMessage("No active editor.");
-          return;
-        }
-        const sourceSelection = vscode.window.activeTextEditor.selection;
-        if (sourceSelection.isEmpty) {
-          vscode.window.showErrorMessage("No source selected.");
-          return;
-        }
-        const sourceSelectionText =
-          vscode.window.activeTextEditor?.document.getText(sourceSelection);
-        const sourceUri = vscode.window.activeTextEditor?.document.uri;
-        const sourceFilePath =
-          vscode.window.activeTextEditor?.document.fileName;
-        if (!sourceFilePath) {
-          vscode.window.showErrorMessage("No file tab active.");
-          return;
-        }
-        const workingDirectory = path.dirname(sourceFilePath);
+      vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification },
+        async (progress) => {
+          try {
+            progress.report({
+              message: "Outsourcing component…",
+              increment: 10,
+            });
+            // Get current selection
+            if (!vscode.window.activeTextEditor) {
+              throw new Error("No active editor.");
+            }
+            let sourceSelection = vscode.window.activeTextEditor.selection;
+            if (!sourceSelection) {
+              throw new Error("No selection.");
+            }
+            if (sourceSelection.isEmpty) {
+              sourceSelection = new vscode.Selection(
+                new vscode.Position(sourceSelection.start.line, 0),
+                new vscode.Position(sourceSelection.start.line, 9999)
+              );
+            }
+            const sourceSelectionText =
+              vscode.window.activeTextEditor?.document.getText(sourceSelection);
+            const sourceUri = vscode.window.activeTextEditor?.document.uri;
+            const sourceFilePath =
+              vscode.window.activeTextEditor?.document.fileName;
+            if (!sourceFilePath) {
+              throw new Error("No tab file active.");
+            }
+            const workingDirectory = path.dirname(sourceFilePath);
 
-        const newComponentName = await vscode.window.showInputBox({
-          title: "Please enter the new component name.",
-        });
-        if (!newComponentName) {
-          return;
+            const newComponentNameUncased = await vscode.window.showInputBox({
+              title: "Please enter the new component name.",
+            });
+            if (!newComponentNameUncased) {
+              return;
+            }
+            const newComponentName =
+              newComponentNameUncased.substr(0, 1).toUpperCase() +
+              newComponentNameUncased.substr(1);
+            const targetContent = `const ${newComponentName} = () => { return ( ${sourceSelectionText} )} 
+          
+          export default ${newComponentName}`;
+            const targetFileName =
+              newComponentName.substr(0, 1).toLowerCase() +
+              newComponentName.substr(1);
+            const targetFilePath = `${workingDirectory}/${targetFileName}.component.tsx`;
+            const targetUri = vscode.Uri.file(targetFilePath).with({
+              scheme: "untitled",
+            });
+            await vscode.workspace.openTextDocument(targetUri);
+            const newSourceContent = `<${newComponentName} />`;
+
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(sourceUri, sourceSelection, newSourceContent);
+            edit.insert(targetUri, new vscode.Position(0, 0), targetContent);
+            await vscode.workspace.applyEdit(edit);
+            await vscode.commands.executeCommand(
+              "editor.action.formatDocument"
+            );
+            vscode.window.activeTextEditor.selection = new vscode.Selection(
+              new vscode.Position(sourceSelection.start.line, 0),
+              new vscode.Position(sourceSelection.start.line, 9999)
+            );
+            await vscode.commands.executeCommand("vscode.open", targetUri);
+            await vscode.commands.executeCommand(
+              "editor.action.formatDocument"
+            );
+            await vscode.commands.executeCommand("workbench.action.files.save");
+            progress.report({ increment: 20 });
+            await awaitTimeout(2000);
+            progress.report({ increment: 70 });
+            await vscode.commands.executeCommand("editor.action.codeAction", {
+              kind: "source.addMissingImports",
+            });
+            await vscode.commands.executeCommand("workbench.action.files.save");
+            await vscode.commands.executeCommand("vscode.open", sourceUri);
+            await awaitTimeout(2000);
+            progress.report({ increment: 95 });
+            await vscode.commands.executeCommand("editor.action.codeAction", {
+              kind: "source.addMissingImports",
+            });
+            await vscode.commands.executeCommand(
+              "editor.action.formatDocument"
+            );
+            vscode.window.showInformationMessage("Outsourcing completed.");
+            progress.report({ increment: 100 });
+          } catch (error) {
+            vscode.window.showErrorMessage(
+              (error as any)?.message ?? "Unknown error."
+            );
+            console.error(error);
+          } finally {
+          }
         }
-        const targetContent = `const ${newComponentName} = (props: {}) => { return ( ${sourceSelectionText} )} 
-        
-        export default ${newComponentName}`;
-        const targetFileName = `${workingDirectory}/${newComponentName}.component.tsx`;
-        const targetUri = vscode.Uri.file(targetFileName).with({
-          scheme: "untitled",
-        });
-        await vscode.workspace.openTextDocument(targetUri);
-        const newSourceContent = `<${newComponentName} />`;
-
-        const edit = new vscode.WorkspaceEdit();
-        edit.replace(sourceUri, sourceSelection, newSourceContent);
-        edit.insert(targetUri, new vscode.Position(0, 0), targetContent);
-        await vscode.workspace.applyEdit(edit);
-        await vscode.commands.executeCommand("editor.action.formatDocument");
-        vscode.window.activeTextEditor.selection = new vscode.Selection(
-          new vscode.Position(sourceSelection.start.line, 0),
-          new vscode.Position(sourceSelection.start.line, 9999)
-        );
-        await vscode.commands.executeCommand("vscode.open", targetUri);
-        await vscode.commands.executeCommand("editor.action.formatDocument");
-      } catch (error) {
-        vscode.window.showErrorMessage(JSON.stringify(error));
-        console.error(error);
-      }
-      //
-
-      // The code you place here will be executed every time your command is executed
-      // Display a message box to the user
-      // vscode.window.showInformationMessage(
-      //   "Hello World from Outsource Component!"
-      // );
+      );
     }
   );
 
   context.subscriptions.push(disposable);
+}
+
+function awaitTimeout(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // this method is called when your extension is deactivated
