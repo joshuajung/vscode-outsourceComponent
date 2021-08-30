@@ -8,4 +8,4 @@ Outsources a component based on a JSX node.
 
 ## Usage
 1. Select a line or code block to extract to an own component.
-2. Run the `Outsource Component` command
+2. Run the `Outsource Selected Component…` command
